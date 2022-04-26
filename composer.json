@@ -1,0 +1,26 @@
+{
+  "name": "lia-tec/dhl-php-client",
+  "description": "Dhl php client",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "LiaTec\\DhlPhpClient\\": "src/",
+      "Tests\\": "tests/"
+    }
+  },
+  "authors": [
+    {
+      "name": "Charly",
+      "email": "cmpere@gmail.com"
+    }
+  ],
+  "require-dev": {
+    "phpunit/phpunit": "^8",
+    "phpstan/phpstan": "^1.5",
+    "symfony/var-dumper": "^5.4"
+  },
+  "require": {
+    "lia-tec/manager": "^0",
+    "lia-tec/http": "^0"
+  }
+}
