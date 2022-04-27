@@ -2,15 +2,14 @@
 
 namespace LiaTec\DhlPhpClient\Manager;
 
-use Exception;
-use GuzzleHttp\Utils;
-use LiaTec\Manager\Model;
-use LiaTec\DhlPhpClient\Manager;
 use LiaTec\DhlPhpClient\Model\RateResponse;
+use LiaTec\DhlPhpClient\Manager;
+use LiaTec\Manager\Model;
+use GuzzleHttp\Utils;
+use Exception;
 
 class Rates extends Manager
 {
-
     /**
      * Get rates
      *
@@ -38,39 +37,34 @@ class Rates extends Manager
      * nextBusinessDay: When set to true and there are no products available for given plannedShippingDate then
      * products available for the next possible pickup date are returned, Available values : true, false
      *
-     * @param  array  $data  Rate request params
+     * @param array $data Rate request params
      *
      * @return Model
      * @throws Exception
      */
-    public function get(array $data = []): Model
+    public function rates(array $data = []): Model
     {
-        $response = $this->client->get('rates', $this->prepare($data));
-
-        if (is_array($response)) {
-            return RateResponse::hydrateFromArray($response);
-        }
-
-        $body = $response->getBody();
-        $data = $body->getSize() ? Utils::jsonDecode($body, true) : [];
+        $response = $this->client->get('rates', $data);
+        $body     = $response->getBody();
+        $data     = $body->getSize() ? Utils::jsonDecode($body, true) : [];
 
         return RateResponse::hydrateFromArray($data);
     }
 
     /**
-     * Prepares rate request parameters
+     * The Landed Cost section allows further information around products being sold to be provided.
+     * In return the duty, tax and shipping charges are calculated in real time and provides
+     * transparency about any extra costs the buyer may have to pay before they reach them.
      *
-     * @param  array  $params
-     *
-     * @return array
+     * @param  array $data
+     * @return Model
      */
-    private function prepare(array $params = []): array
+    public function landedCost(array $data = []): Model
     {
-        $credential = $this->client->getCredential();
+        $response = $this->client->post('landed-cost', $data);
+        $body     = $response->getBody();
+        $data     = $body->getSize() ? Utils::jsonDecode($body, true) : [];
 
-        return array_merge([
-                               'accountNumber' => $credential->accountNumber,
-                           ], $params);
+        return RateResponse::hydrateFromArray($data);
     }
-
 }
