@@ -7,119 +7,20 @@ use LiaTec\DhlPhpClient\Model\ShipmentResponse;
 use LiaTec\DhlPhpClient\Model\TrackingResponse;
 use LiaTec\DhlPhpClient\Model\Shipment;
 use LiaTec\DhlPhpClient\DHL as Client;
+use LiaTec\DhlPhpClient\Testing\Stack;
 use PHPUnit\Framework\TestCase;
 use Tests\Traits\ShipmentTrait;
-use Carbon\Carbon;
-use DateTimeZone;
-use LiaTec\DhlPhpClient\Manager\Shipment as ManagerShipment;
+use LiaTec\Http\Http;
 
 class ShipmentTest extends TestCase
 {
     use ShipmentTrait;
-
-    /**
-     * @var array
-     */
-    protected $managers = [
-        'shipment' => ManagerShipment::class,
-    ];
-
-    protected $payload;
 
     protected $credential;
 
     public function setUp(): void
     {
         parent::setUp();
-
-        $shippingDate = Carbon::tomorrow(new DateTimeZone('America/Mexico_City'))->format(
-            'Y-m-d\TH:i:s\G\M\TP'
-        );
-
-        $this->payload = [
-            'plannedShippingDateAndTime' => $shippingDate,
-            /**
-             * N -> EXPRESS DOMESTIC
-             * G -> ECONOMY SELECT DOMESTIC
-             */
-            'productCode' => 'N',
-            'pickup'      => [
-                'isRequested'   => true,
-                'closeTime'     => '18:00',
-                'location'      => 'front door',
-                'pickupDetails' => [
-                    'postalAddress' => [
-                        'postalCode'   => '07870',
-                        'cityName'     => 'CDMX',
-                        'countryCode'  => 'MX',
-                        'addressLine1' => 'Borodin 92 B102, Vallejo, CP. 07870, CDMX', //max 45
-                    ],
-                    'contactInformation' => [
-                        'fullName'    => 'Carlos Manuel Perez Cruz',
-                        'companyName' => 'Store Name',
-                        'phone'       => '5585308643',
-                        'email'       => 'cmpere@gmail.com',
-                    ],
-                    'typeCode' => 'private', // ["business","direct_consumer","government","other","private","reseller"]
-                ],
-                'specialInstructions' => [
-                    [
-                        'value' => 'Tocar Timbre B102',
-                    ],
-                ],
-            ],
-            'customerDetails' => [
-                'shipperDetails' => [
-                    'postalAddress' => [
-                        'postalCode'   => '07870',
-                        'cityName'     => 'CDMX',
-                        'countryCode'  => 'MX',
-                        'addressLine1' => 'Borodin 92 B102, Vallejo, CP. 07870, CDMX',
-                    ],
-                    'contactInformation' => [
-                        'fullName'    => 'Carlos Manuel Perez Cruz',
-                        'companyName' => 'Store Name',
-                        'phone'       => '5585308643',
-                        'email'       => 'cmpere@gmail.com',
-                    ],
-                    'typeCode' => 'private', // ["business","direct_consumer","government","other","private","reseller"]
-                ],
-                'receiverDetails' => [
-                    'postalAddress' => [
-                        'postalCode'   => '07870',
-                        'cityName'     => 'CDMX',
-                        'countryCode'  => 'MX',
-                        'addressLine1' => 'Borodin 92 B102, Vallejo, CP. 07870, CDMX',
-                    ],
-                    'contactInformation' => [
-                        'fullName'    => 'Carlos Manuel Perez Cruz',
-                        'companyName' => 'Store Name',
-                        'phone'       => '5585308643',
-                        'email'       => 'cmpere@gmail.com',
-                    ],
-                    'typeCode' => 'private', // ["business","direct_consumer","government","other","private","reseller"]
-                ],
-            ],
-            'content' => [
-                'isCustomsDeclarable'   => false,
-                'declaredValue'         => 0,
-                'declaredValueCurrency' => 'MXN',
-                'description'           => 'Envio de zapatos',
-                'incoterm'              => 'DAP',
-                'unitOfMeasurement'     => 'metric',
-                'packages'              => [
-                    [
-                        'labelDescription' => 'Custom description',
-                        'weight'           => 1.00,
-                        'dimensions'       => [
-                            'length' => 10,
-                            'width'  => 10,
-                            'height' => 10,
-                        ],
-                    ],
-                ],
-            ],
-        ];
 
         $this->credential = new DHLBasicAuthCredential([
             'APIKey'          => 'YOUR_DATA_HERE',
@@ -131,21 +32,14 @@ class ShipmentTest extends TestCase
     }
 
     /** @test */
-    public function it_resolve_subscribed_managers()
+    public function dhl_create_shipment()
     {
-        foreach ($this->managers as $accessor => $manager) {
-            $this->assertInstanceOf(
-                $manager,
-                Client::$accessor($this->credential)
-            );
-        }
-    }
+        $client = Http::basic($this->credential, [], Stack::ok($this->makeShipmentResponse()));
 
-    /** @test */
-    public function it_create_shipment()
-    {
         /** @phpstan-ignore-next-line */
-        $response = Client::shipment($this->credential)->post($this->payload);
+        $response = Client::shipment($this->credential)->setClient($client)->shipments(
+            $this->makeShipmentPayload()
+        );
 
         $this->assertInstanceOf(ShipmentResponse::class, $response);
 
@@ -175,14 +69,15 @@ class ShipmentTest extends TestCase
     }
 
     /** @test */
-    public function it_track_shipment()
+    public function dhl_track_shipment()
     {
+        $client = Http::basic($this->credential, [], Stack::ok($this->makeShipmentTrackingResponse()));
+
         /** @phpstan-ignore-next-line */
-        $response = Client::shipment($this->credential)->tracking([
-            'shipmentTrackingNumber' => '1234567890',
-            'trackingView'           => 'all-checkpoints',
-            'levelOfDetail'          => 'all',
-        ]);
+        $response = Client::shipment($this->credential)->setClient($client)->tracking(
+            '1234567890',
+            ['trackingView' => 'all-checkpoints', 'levelOfDetail' => 'all']
+        );
 
         $this->assertInstanceOf(TrackingResponse::class, $response);
         $this->assertIsArray($response->shipments);

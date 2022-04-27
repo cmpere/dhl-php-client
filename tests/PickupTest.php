@@ -2,98 +2,23 @@
 
 namespace Tests;
 
-use DateTimeZone;
-use Carbon\Carbon;
 use PHPUnit\Framework\TestCase;
 use LiaTec\DhlPhpClient\DHL as Client;
-use LiaTec\DhlPhpClient\Manager\Pickup;
 use LiaTec\DhlPhpClient\Model\PickupResponse;
 use LiaTec\DhlPhpClient\Credential\DHLBasicAuthCredential;
+use LiaTec\DhlPhpClient\Testing\Stack;
+use LiaTec\Http\Http;
+use Tests\Traits\PickupTrait;
 
 class PickupTest extends TestCase
 {
-    /**
-     * @var array
-     */
-    protected $managers = [
-        'pickups' => Pickup::class,
-    ];
-
-    protected $payload;
+    use PickupTrait;
 
     protected $credential;
 
     public function setUp(): void
     {
         parent::setUp();
-
-        $shippingDate = Carbon::tomorrow(new DateTimeZone('America/Mexico_City'))->format(
-            'Y-m-d\TH:i:s\G\M\TP'
-        );
-
-        $this->payload = [
-            'plannedPickupDateAndTime' => $shippingDate,
-            'closeTime'                => '18:00',
-            'location'                 => 'front door',
-            'locationType'             => 'residence', //["business","residence"]
-            'specialInstructions'      => [
-                [
-                    'value' => 'Tocar Timbre B102',
-                ],
-            ],
-            'remark'          => 'Observaciones',
-            'customerDetails' => [
-                'shipperDetails' => [
-                    'postalAddress' => [
-                        'postalCode'   => '07870',
-                        'cityName'     => 'CDMX',
-                        'countryCode'  => 'MX',
-                        'addressLine1' => 'Borodin 99 A102, Vallejo, CP. 07870, CDMX',
-                    ],
-                    'contactInformation' => [
-                        'fullName'    => 'Customer name',
-                        'companyName' => 'Store Name',
-                        'phone'       => '5585308629',
-                        'email'       => 'cmpere@gmail.com',
-                    ],
-                ],
-                'pickupDetails' => [
-                    'postalAddress' => [
-                        'postalCode'   => '07870',
-                        'cityName'     => 'CDMX',
-                        'countryCode'  => 'MX',
-                        'addressLine1' => 'Borodin 88 A102, Vallejo, CP. 07870, CDMX', //max 45
-                    ],
-                    'contactInformation' => [
-                        'fullName'    => 'Pickup name',
-                        'companyName' => 'Store Name',
-                        'phone'       => '5585308629',
-                        'email'       => 'cmpere@gmail.com',
-                    ],
-                ],
-            ],
-            'shipmentDetails' => [
-                [
-                    'productCode'           => 'N',
-                    'localProductCode'      => 'N',
-                    'isCustomsDeclarable'   => false,
-                    'declaredValue'         => 0,
-                    'declaredValueCurrency' => 'MXN',
-                    'unitOfMeasurement'     => 'metric',
-                    'packages'              => [
-                        [
-                            'weight'     => 1.00,
-                            'dimensions' => [
-                                'length' => 10,
-                                'width'  => 10,
-                                'height' => 10,
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-
-        ];
 
         $this->credential = new DHLBasicAuthCredential([
             'APIKey'          => 'YOUR_DATA_HERE',
@@ -105,21 +30,14 @@ class PickupTest extends TestCase
     }
 
     /** @test */
-    public function it_resolve_subscribed_managers()
+    public function dhl_creates_pickup()
     {
-        foreach ($this->managers as $accessor => $manager) {
-            $this->assertInstanceOf(
-                $manager,
-                Client::$accessor($this->credential)
-            );
-        }
-    }
+        $client = Http::basic($this->credential, [], Stack::ok($this->makePickupResponse()));
 
-    /** @test */
-    public function it_create_pickup()
-    {
         /** @phpstan-ignore-next-line */
-        $response = Client::pickups($this->credential)->post($this->payload);
+        $response = Client::pickups($this->credential)
+                            ->setClient($client)
+                            ->pickups($this->makePickupRequest());
 
         $this->assertInstanceOf(PickupResponse::class, $response);
         $this->assertIsArray($response->dispatchConfirmationNumbers);
